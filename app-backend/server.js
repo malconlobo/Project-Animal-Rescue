@@ -12,7 +12,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_hackathon';
 
 app.use(express.json());
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_ORIGIN || "http://localhost:3000");
+  const allowedOrigins = (process.env.FRONTEND_ORIGIN || "http://localhost:3000").split(',').map(o => o.trim());
+  const origin = req.headers.origin;
+  
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
+  }
+  
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(204);

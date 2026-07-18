@@ -31,8 +31,23 @@ app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 app.post("/api/auth/register", async (req, res) => {
   const { name, city, area, type, responseTime, phone, notificationEndpoint, email, password } = req.body;
-  if (!name || !city || !email || !password) {
-    return res.status(400).json({ error: "Name, city, email, and password are required" });
+  
+  if (!name || !city || !phone || !email || !password) {
+    return res.status(400).json({ error: "Organization name, city, phone, email, and password are required fields." });
+  }
+
+  if (String(password).length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters long." });
+  }
+
+  const phoneRegex = /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/im;
+  if (!phoneRegex.test(String(phone))) {
+    return res.status(400).json({ error: "Please provide a valid phone number." });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(String(email))) {
+    return res.status(400).json({ error: "Please provide a valid email address." });
   }
 
   try {

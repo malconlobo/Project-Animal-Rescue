@@ -238,4 +238,9 @@ app.put("/api/incidents/:id/status", authMiddleware, async (req, res) => {
   }
 });
 
-app.listen(port, () => console.log(`PawReach API listening on ${port}`));
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => console.log(`PawReach API listening on ${port}`));
+}
+
+// Required for Vercel Serverless
+module.exports = app;

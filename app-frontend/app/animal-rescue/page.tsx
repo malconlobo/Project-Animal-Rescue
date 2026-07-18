@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { checkIsLoggedIn } from "../actions/auth";
 
 type Organization = {
   id: number;
@@ -10,17 +11,11 @@ type Organization = {
   type: string;
   responseTime: string;
   phone: string;
+  email?: string;
   verified: boolean;
 };
 
-const organizations: Organization[] = [
-  { id: 1, name: "Wildlife SOS", city: "Delhi", area: "Delhi NCR", type: "Wildlife & domestic", responseTime: "15 min", phone: "+91 98765 43210", verified: true },
-  { id: 2, name: "Friendicoes SECA", city: "Delhi", area: "Defence Colony", type: "Domestic animals", responseTime: "20 min", phone: "+91 98100 34212", verified: true },
-  { id: 3, name: "Bombay Animal Rights", city: "Mumbai", area: "Andheri & Bandra", type: "Domestic animals", responseTime: "18 min", phone: "+91 98204 88019", verified: true },
-  { id: 4, name: "People For Animals", city: "Bengaluru", area: "Bannerghatta", type: "Wildlife & domestic", responseTime: "25 min", phone: "+91 98450 41106", verified: true },
-  { id: 5, name: "Blue Cross of India", city: "Chennai", area: "Guindy & Adyar", type: "Domestic animals", responseTime: "22 min", phone: "+91 94441 12001", verified: true },
-  { id: 6, name: "ResQ Charitable Trust", city: "Pune", area: "Pune & PCMC", type: "Wildlife & domestic", responseTime: "20 min", phone: "+91 99230 46191", verified: true },
-];
+const organizations: Organization[] = [];
 
 const cities = ["Delhi", "Mumbai", "Bengaluru", "Chennai", "Pune"];
 
@@ -32,6 +27,14 @@ function ArrowIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" /></svg>;
 }
 
+function LocationIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="inline-block w-[1em] h-[1em] mr-1 -mt-0.5 align-middle text-[#145a46]">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [city, setCity] = useState("Delhi");
   const [reportOpen, setReportOpen] = useState(false);
@@ -39,15 +42,20 @@ export default function Home() {
   const [sending, setSending] = useState(false);
   const [reportError, setReportError] = useState("");
   const [query, setQuery] = useState("");
-  const [liveOrganizations, setLiveOrganizations] = useState(organizations);
+  const [liveOrganizations, setLiveOrganizations] = useState<Organization[]>([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    checkIsLoggedIn().then(setIsLoggedIn);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    fetch(`${apiUrl}/api/organizations?city=${encodeURIComponent(city)}`, { signal: controller.signal })
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+    fetch(`${API_URL}/organizations?city=${encodeURIComponent(city)}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Unable to load organizations")))
-      .then(({ data }) => setLiveOrganizations(data))
-      .catch((error: Error) => { if (error.name !== "AbortError") setLiveOrganizations(organizations.filter((org) => org.city === city)); });
+      .then(({ data }) => setLiveOrganizations(data || []))
+      .catch((error: Error) => { if (error.name !== "AbortError") console.error("Failed to fetch organizations:", error); });
     return () => controller.abort();
   }, [city]);
 
@@ -60,9 +68,9 @@ export default function Home() {
     setSending(true);
     setReportError("");
     const values = new FormData(event.currentTarget);
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
     try {
-      const response = await fetch(`${apiUrl}/api/incidents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.fromEntries(values)) });
+      const response = await fetch(`${API_URL}/incidents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.fromEntries(values)) });
       if (!response.ok) throw new Error("Unable to send report");
       setSent(true);
     } catch {
@@ -80,6 +88,11 @@ export default function Home() {
         <nav aria-label="Main navigation">
           <a href="#rescuers">Find help</a>
           <a href="#how-it-works">How it works</a>
+          {isLoggedIn ? (
+            <a href="/dashboard" className="font-medium text-[#145a46]">Go to Dashboard</a>
+          ) : (
+            <a href="/auth/login" className="font-medium text-orange-600">Foundation Login</a>
+          )}
         </nav>
         <button className="report-header" onClick={() => { setReportOpen(true); setSent(false); }}>
           Report an emergency <ArrowIcon />
@@ -94,10 +107,6 @@ export default function Home() {
           <div className="hero-actions">
             <a className="button primary" href="#rescuers">Find a rescuer <ArrowIcon /></a>
             <button className="button quiet" onClick={() => { setReportOpen(true); setSent(false); }}>Report an incident</button>
-          </div>
-          <div className="trust-row" aria-label="Impact statistics">
-            <div><strong>250+</strong><span>verified rescue teams</span></div>
-            <div><strong>30</strong><span>cities and growing</span></div>
           </div>
         </div>
         <div className="hero-art" aria-label="Illustration of a dog being cared for" role="img">
@@ -123,12 +132,19 @@ export default function Home() {
           {visibleOrganizations.map((org) => (
             <article className="organization-card" key={org.id}>
               <div className="card-top"><div className="org-avatar">{org.name.split(" ").map(word => word[0]).slice(0, 2).join("")}</div><span className="verified">✓ Verified</span></div>
-              <h3>{org.name}</h3><p className="area">⌖ {org.area} · {org.city}</p><p className="org-type">{org.type}</p>
-              <div className="card-footer"><span><b>●</b> Usually responds in {org.responseTime}</span><a href={`tel:${org.phone.replace(/\s/g, "")}`} aria-label={`Call ${org.name}`}>Call <ArrowIcon /></a></div>
+              <h3>{org.name}</h3><p className="area"><LocationIcon />{org.area ? `${org.area} · ` : ""}{org.city}</p>{org.type && <p className="org-type">{org.type}</p>}
+              <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-[#e7e9e4] text-[0.7rem] text-[#607169] select-text">
+                {org.responseTime && (
+                  <div><span className="text-[#50a971] text-[0.7rem] font-bold mr-1">●</span>Usually responds in {org.responseTime}</div>
+                )}
+                <div className="flex flex-col gap-1">
+                  <span className="font-bold text-[#145a46]">📞 {org.phone}</span>
+                  {org.email && <span className="font-bold text-[#145a46]">✉️ {org.email}</span>}
+                </div>
+              </div>
             </article>
           ))}
           {visibleOrganizations.length === 0 && <p className="empty">No rescuers match that search yet. Try another city or search term.</p>}
-          <button className="more-card" onClick={() => setReportOpen(true)}><span>+</span><strong>Know a rescue team?</strong><p>Help us grow this network.</p></button>
         </div>
       </section>
 

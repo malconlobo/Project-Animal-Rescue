@@ -86,7 +86,7 @@ export default function Home() {
           {isLoggedIn ? (
             <a href="/dashboard" className="font-medium text-[#145a46]">Go to Dashboard</a>
           ) : (
-            <a href="/auth/login" className="font-medium text-orange-600">Foundation Login</a>
+            <a href="/auth/login" className="font-medium text-orange-600">Rescuer Portal</a>
           )}
         </nav>
         <button className="report-header" onClick={() => { setReportOpen(true); setSent(false); }}>

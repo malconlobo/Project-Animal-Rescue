@@ -1,7 +1,8 @@
 {
   "scripts": {
     "dev": "node --watch server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "jest"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -11,5 +12,9 @@
     "mongoose": "^9.7.4",
     "pg": "^8.22.0",
     "resend": "^6.17.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
   }
 }

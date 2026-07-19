@@ -41,7 +41,6 @@ export default function Home() {
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [reportError, setReportError] = useState("");
-  const [query, setQuery] = useState("");
   const [liveOrganizations, setLiveOrganizations] = useState<Organization[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -58,10 +57,6 @@ export default function Home() {
       .catch((error: Error) => { if (error.name !== "AbortError") console.error("Failed to fetch organizations:", error); });
     return () => controller.abort();
   }, [city]);
-
-  const visibleOrganizations = useMemo(() => liveOrganizations.filter((org) =>
-    `${org.name} ${org.area} ${org.type}`.toLowerCase().includes(query.toLowerCase()),
-  ), [liveOrganizations, query]);
 
   async function submitReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,14 +117,13 @@ export default function Home() {
       <section className="rescue-section" id="rescuers" aria-labelledby="rescuers-title">
         <div className="section-head">
           <div><p className="eyebrow"><span /> Local rescue network</p><h2 id="rescuers-title">Find help near you</h2><p>Verified organizations ready to respond in your city.</p></div>
-          <label className="search"><span aria-hidden="true">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search rescue organizations" aria-label="Search rescue organizations" /></label>
         </div>
         <div className="city-picker" aria-label="Choose a city" role="group">
           <span className="location-dot" aria-hidden="true">⌖</span>
           {cities.map((item) => <button key={item} className={city === item ? "active" : ""} onClick={() => setCity(item)} aria-pressed={city === item}>{item}</button>)}
         </div>
         <div className="organization-grid" aria-live="polite">
-          {visibleOrganizations.map((org) => (
+          {liveOrganizations.map((org) => (
             <article className="organization-card" key={org.id}>
               <div className="card-top"><div className="org-avatar">{org.name.split(" ").map(word => word[0]).slice(0, 2).join("")}</div><span className="verified">✓ Verified</span></div>
               <h3>{org.name}</h3><p className="area"><LocationIcon />{org.area ? `${org.area} · ` : ""}{org.city}</p>{org.type && <p className="org-type">{org.type}</p>}
@@ -144,7 +138,7 @@ export default function Home() {
               </div>
             </article>
           ))}
-          {visibleOrganizations.length === 0 && <p className="empty">No rescuers match that search yet. Try another city or search term.</p>}
+          {liveOrganizations.length === 0 && <p className="empty">No verified rescuers registered in this city yet.</p>}
         </div>
       </section>
 

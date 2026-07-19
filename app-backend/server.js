@@ -5,10 +5,12 @@ const jwt = require('jsonwebtoken');
 const { pgPool, connectMongo, initPostgres } = require('./db');
 const Incident = require('./models/Incident');
 const authMiddleware = require('./middleware/auth');
+const { Resend } = require('resend');
 
 const app = express();
 const port = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_hackathon';
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 app.use(express.json());
 app.use((req, res, next) => {
@@ -131,7 +133,36 @@ app.post("/api/incidents", async (req, res) => {
     const incident = new Incident({ city: city.trim(), situation: situation.trim(), location: location.trim(), details: String(details).trim() });
     await incident.save();
 
-    // Simplified notification response for hackathon (would use SNS/SES in prod)
+    // Fetch rescue organizations in this city
+    const orgsResult = await pgPool.query(
+      `SELECT email, name FROM organizations WHERE LOWER(city) = LOWER($1) AND email IS NOT NULL AND email != ''`,
+      [city.trim()]
+    );
+    
+    const orgEmails = orgsResult.rows.map(org => org.email);
+    
+    if (orgEmails.length > 0 && process.env.RESEND_API_KEY) {
+      try {
+        await resend.emails.send({
+          from: 'Alerts <alerts@jsunlocked.dev>',
+          to: orgEmails,
+          subject: `🚨 Emergency Alert: Animal in need in ${city.trim()}`,
+          html: `
+            <h2>New Animal Rescue Incident</h2>
+            <p><strong>City:</strong> ${city.trim()}</p>
+            <p><strong>Location:</strong> ${location.trim()}</p>
+            <p><strong>Situation:</strong> ${situation.trim()}</p>
+            <p><strong>Additional Details:</strong> ${details.trim() || 'None provided'}</p>
+            <br/>
+            <p>Please respond if your team is available to assist.</p>
+          `
+        });
+        console.log(`Alert sent to ${orgEmails.length} orgs in ${city}`);
+      } catch (err) {
+        console.error('Failed to send Resend email:', err);
+      }
+    }
+
     res.status(201).json({ data: incident, message: "Incident reported successfully" });
   } catch (error) {
     console.error(error);
@@ -153,6 +184,20 @@ app.get("/api/organizations/me", authMiddleware, async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: "Organization not found" });
     res.json({ data: result.rows[0] });
   } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.delete("/api/organizations/me", authMiddleware, async (req, res) => {
+  try {
+    const result = await pgPool.query(
+      `DELETE FROM organizations WHERE id = $1 RETURNING id`,
+      [req.user.orgId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Organization not found" });
+    res.json({ message: "Organization deleted successfully" });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

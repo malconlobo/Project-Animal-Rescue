@@ -1,22 +1,21 @@
 # PawReach
 
-PawReach is an animal-rescue discovery and incident-reporting app built for a hackathon. It helps people find verified rescue organizations in their city and quickly alert nearby responders when an animal needs help.
+PawReach is a centralized animal-rescue emergency response platform built for a hackathon. It bridges the gap between everyday citizens and verified animal rescue organizations. Anyone can instantly view local rescuers or submit an SOS report, which triggers targeted email alerts. Rescue teams can register, log into their secure portal, and manage active emergencies from "Unassigned" to "Resolved."
 
 ## What it does
 
-- Lists animal rescue organizations by city.
-- Lets people search local rescue teams and call them directly.
-- Provides an accessible incident-report form for urgent situations.
-- Sends a submitted incident to the backend, which queues notifications for organizations in the same city.
-
-The root route (`/`) redirects to `/animal-rescue`.
+- **Public Portal**: Lists verified animal rescue organizations filtered by city.
+- **Incident Reporting**: Frictionless SOS reporting form for urgent situations.
+- **Automated Dispatch**: Sends immediate, localized HTML email alerts to rescue organizations using the Resend API.
+- **Rescuer Portal**: A secure dashboard for organizations to claim and track incidents (using JWT authentication).
+- **Dual-Database Architecture**: PostgreSQL handles structured, relational data (Orgs and Auth), while MongoDB handles flexible, document-based incident lifecycles.
 
 ## Repository structure
 
 ```text
 .
-|- app-frontend/       # Next.js 16 + React 19 web application
-|- app-backend/        # Express API and notification queue prototype
+|- app-frontend/       # Next.js 16 + React 19 web application (Tailwind CSS)
+|- app-backend/        # Express API, Postgres + MongoDB connections, Resend integration
 `- README.md
 ```
 
@@ -24,14 +23,34 @@ The root route (`/`) redirects to `/animal-rescue`.
 
 - Node.js 20.9 or later
 - npm
+- PostgreSQL database (local or cloud)
+- MongoDB database (local or cloud)
+- Resend API key (for email dispatch)
 
 ## Run locally
 
 Install dependencies from the repository root:
 
 ```bash
-npm --prefix app-backend ci
-npm --prefix app-frontend ci
+cd app-backend && npm install
+cd ../app-frontend && npm install
+```
+
+### Environment variables
+
+**`app-backend/.env`**
+```env
+PORT=4000
+FRONTEND_ORIGIN=http://localhost:3000
+DATABASE_URL=postgres://user:password@localhost:5432/pawreach
+MONGO_URI=mongodb://localhost:27017/pawreach
+JWT_SECRET=super_secret_jwt_key
+RESEND_API_KEY=re_your_resend_key
+```
+
+**`app-frontend/.env.local`**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
 ```
 
 Start the API in one terminal:
@@ -48,51 +67,38 @@ cd app-frontend
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). You will be redirected to the animal-rescue experience. The API runs on [http://localhost:4000](http://localhost:4000) by default.
+Open [http://localhost:3000](http://localhost:3000). The API runs on [http://localhost:4000](http://localhost:4000) by default.
 
-## Environment variables
+## Testing
 
-The defaults work for local development. Set these variables when your frontend and backend are deployed separately:
+The project includes robust unit testing using **Jest**, **Supertest**, and **React Testing Library**.
 
-| App | Variable | Default | Purpose |
-| --- | --- | --- | --- |
-| Frontend | `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | Base URL of the Express API. |
-| Backend | `PORT` | `4000` | Port used by the Express server. |
-| Backend | `FRONTEND_ORIGIN` | `http://localhost:3000` | Allowed frontend origin for CORS. |
-
-For example, create `app-frontend/.env.local`:
-
+To run backend tests (Mocked DBs & Resend):
 ```bash
-NEXT_PUBLIC_API_URL=https://api.example.com
+cd app-backend
+npm test
 ```
 
-## API
+To run frontend tests (Mocked APIs):
+```bash
+cd app-frontend
+npm test
+```
+
+## Core API Endpoints
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `GET` | `/health` | Health check. |
-| `GET` | `/api/organizations?city=Delhi` | Return rescue organizations, optionally filtered by city. |
-| `POST` | `/api/incidents` | Create an incident and queue local organization notifications. |
-| `GET` | `/api/incidents/:id/notifications` | View notification records for an incident. |
+| `POST` | `/api/auth/register` | Register a new organization. |
+| `POST` | `/api/auth/login` | Authenticate and return JWT token. |
+| `GET` | `/api/organizations?city=Delhi` | Public list of organizations by city. |
+| `POST` | `/api/incidents` | Create an incident and email local orgs. |
+| `GET` | `/api/incidents/unassigned` | (Auth) Get unassigned local incidents. |
+| `PUT` | `/api/incidents/:id/assign` | (Auth) Claim an incident. |
+| `PUT` | `/api/incidents/:id/status` | (Auth) Update incident status (e.g. resolved). |
 
-Example incident request:
+## Production & Scaling
 
-```bash
-curl -X POST http://localhost:4000/api/incidents \
-  -H "Content-Type: application/json" \
-  -d '{
-    "city": "Delhi",
-    "situation": "Injured or unwell",
-    "location": "India Gate",
-    "details": "Dog appears to have an injured leg."
-  }'
-```
-
-## Production direction
-
-The current backend uses in-memory seed data and an in-memory notification queue to keep the hackathon prototype simple. For AWS deployment, replace those pieces with:
-
-- A persistent store for organizations and incidents, such as DynamoDB or RDS.
-- SNS, SES, or EventBridge for asynchronous notifications and retries.
-- Authentication and authorization for NGO responders and incident management.
-- Observability, rate limiting, validation, and location-aware responder matching.
+The architecture is built for serverless deployment:
+- **Frontend**: Optimized for Vercel deployment (Next.js).
+- **Backend**: Can run as an Express server or exported as a Vercel Serverless Function (`module.exports = app;`).

@@ -60,3 +60,25 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {})
 
   return response;
 }
+
+export async function deleteAccountAction() {
+  const token = await getToken();
+  if (!token) return { error: "Not logged in" };
+
+  try {
+    const res = await fetch(`${API_URL}/organizations/me`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!res.ok && res.status !== 404) {
+      return { error: "Failed to delete account" };
+    }
+
+    const cookieStore = await cookies();
+    cookieStore.delete('authToken');
+    return { success: true };
+  } catch (error) {
+    return { error: "An error occurred" };
+  }
+}

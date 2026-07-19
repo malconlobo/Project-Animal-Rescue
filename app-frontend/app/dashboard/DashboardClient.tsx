@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { assignIncident, updateIncidentStatus } from '../actions/dashboard';
-import { logoutAction } from '../actions/auth';
+import { logoutAction, deleteAccountAction } from '../actions/auth';
 import Link from 'next/link';
 
 export default function DashboardClient({ org, unassigned, assigned }: { org: any, unassigned: any[], assigned: any[] }) {
@@ -25,9 +25,20 @@ export default function DashboardClient({ org, unassigned, assigned }: { org: an
     try {
       await updateIncidentStatus(id, newStatus);
     } catch (err) {
-      alert('Error updating status');
+      console.error(err);
     } finally {
       setLoading(null);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (window.confirm("Are you sure you want to permanently delete your organization's account? This action cannot be undone.")) {
+      const res = await deleteAccountAction();
+      if (res?.error) {
+        alert(res.error);
+      } else {
+        window.location.href = '/';
+      }
     }
   };
 
@@ -53,9 +64,14 @@ export default function DashboardClient({ org, unassigned, assigned }: { org: an
 
       <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="bg-[#fffdf9] rounded-lg shadow-sm border border-[#dfe3dc] px-6 py-6 sm:px-8 mb-8">
-            <h2 className="text-xl font-bold font-serif text-[#132822] mb-1">Organization Profile</h2>
-            <p className="mt-1 text-sm text-[#66746e]">City: <strong>{org.city}</strong> &bull; Type: <strong>{org.type}</strong> &bull; Contact: <strong>{org.phone}</strong></p>
+          <div className="bg-[#fffdf9] rounded-lg shadow-sm border border-[#dfe3dc] px-6 py-6 sm:px-8 mb-8 flex justify-between items-start">
+            <div>
+              <h2 className="text-xl font-bold font-serif text-[#132822] mb-1">Organization Profile</h2>
+              <p className="mt-1 text-sm text-[#66746e]">City: <strong>{org.city}</strong> &bull; Type: <strong>{org.type}</strong> &bull; Contact: <strong>{org.phone}</strong></p>
+            </div>
+            <button onClick={handleDeleteAccount} className="px-4 py-2 text-sm font-semibold text-[#f3654d] border border-[#f3654d] rounded-md hover:bg-[#fff5f3] transition-colors">
+              Delete Account
+            </button>
           </div>
 
           <div className="border-b border-[#dfe3dc] mb-8">
